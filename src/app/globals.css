@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* MTN Yellow + Telecel Red inspired palette */
+    --mtn: 48 100% 50%;
+    --telecel: 0 92% 48%;
+    --charcoal: 220 20% 10%;
+
+    --background: 40 33% 98%;
+    --foreground: 220 25% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 25% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 25% 10%;
+
+    --primary: 48 100% 50%;
+    --primary-foreground: 220 25% 8%;
+
+    --secondary: 0 92% 48%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 45 30% 94%;
+    --muted-foreground: 220 10% 42%;
+
+    --accent: 0 92% 96%;
+    --accent-foreground: 0 92% 38%;
+
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 45 20% 88%;
+    --input: 45 20% 88%;
+    --ring: 48 100% 45%;
+
+    --radius: 1.25rem;
+  }
+
+  .dark {
+    --background: 222 28% 7%;
+    --foreground: 45 30% 96%;
+
+    --card: 222 24% 11%;
+    --card-foreground: 45 30% 96%;
+
+    --popover: 222 24% 11%;
+    --popover-foreground: 45 30% 96%;
+
+    --primary: 48 100% 52%;
+    --primary-foreground: 220 25% 8%;
+
+    --secondary: 0 88% 55%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 222 20% 16%;
+    --muted-foreground: 220 10% 62%;
+
+    --accent: 0 60% 18%;
+    --accent-foreground: 0 88% 72%;
+
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 222 18% 18%;
+    --input: 222 18% 18%;
+    --ring: 48 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+@layer utilities {
+  .gradient-brand {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--mtn)) 0%,
+      hsl(35 100% 52%) 45%,
+      hsl(var(--telecel)) 100%
+    );
+  }
+
+  .gradient-brand-text {
+    background: linear-gradient(
+      135deg,
+      hsl(48 100% 38%) 0%,
+      hsl(25 100% 48%) 50%,
+      hsl(var(--telecel)) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .dark .gradient-brand-text {
+    background: linear-gradient(
+      135deg,
+      hsl(48 100% 62%) 0%,
+      hsl(35 100% 58%) 50%,
+      hsl(0 88% 62%) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .gradient-mtn {
+    background: linear-gradient(145deg, hsl(48 100% 55%) 0%, hsl(42 100% 45%) 100%);
+  }
+
+  .gradient-telecel {
+    background: linear-gradient(145deg, hsl(0 92% 52%) 0%, hsl(350 85% 42%) 100%);
+  }
+
+  .glass-card {
+    @apply border border-white/20 bg-white/70 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-white/5;
+  }
+
+  .hero-glow {
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 0%, hsl(48 100% 50% / 0.25), transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 10%, hsl(0 92% 48% / 0.18), transparent 55%),
+      radial-gradient(ellipse 50% 40% at 50% 100%, hsl(48 100% 50% / 0.08), transparent 50%);
+  }
+
+  .dark .hero-glow {
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 0%, hsl(48 100% 50% / 0.12), transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 10%, hsl(0 92% 48% / 0.1), transparent 55%),
+      radial-gradient(ellipse 50% 40% at 50% 100%, hsl(48 100% 50% / 0.05), transparent 50%);
+  }
+
+  .mesh-bg {
+    background-image:
+      radial-gradient(at 0% 0%, hsl(48 100% 50% / 0.15) 0, transparent 50%),
+      radial-gradient(at 100% 0%, hsl(0 92% 48% / 0.12) 0, transparent 50%),
+      radial-gradient(at 50% 100%, hsl(48 100% 50% / 0.08) 0, transparent 50%);
+  }
+}
