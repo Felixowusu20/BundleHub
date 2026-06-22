@@ -1,17 +1,37 @@
 "use client";
 
 import { usePlatformStore } from "@/stores/platform-store";
+import { useAuthSession } from "@/providers/auth-provider";
 import { useMemo } from "react";
+import type { UserAccount, AuthUser } from "@/types/auth";
 
-/** Stable selectors — never call store methods that return new arrays/objects in usePlatformStore selectors. */
+function authToUserAccount(auth: AuthUser): UserAccount {
+  return {
+    id: auth.id,
+    email: auth.email,
+    password: "",
+    name: auth.name,
+    phone: auth.phone,
+    city: auth.city,
+    role: auth.role,
+    createdAt: auth.createdAt,
+    walletBalanceGhs: auth.walletBalanceGhs,
+    loyaltyLevel: auth.loyaltyLevel,
+    shopId: auth.shopId
+  };
+}
 
 export function useCurrentUser() {
-  const userId = usePlatformStore((s) => s.session?.userId);
-  const users = usePlatformStore((s) => s.users);
+  const { user: authUser } = useAuthSession();
+
   return useMemo(
-    () => (userId ? users.find((u) => u.id === userId) ?? null : null),
-    [userId, users]
+    () => (authUser ? authToUserAccount(authUser) : null),
+    [authUser]
   );
+}
+
+export function useAuthUser() {
+  return useAuthSession().user;
 }
 
 export function useActiveShops() {

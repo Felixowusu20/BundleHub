@@ -31,3 +31,10 @@ export function formatRelative(iso: string) {
   const days = Math.floor(hrs / 24);
   return `${days}d ago`;
 }
+
+export function formatTime(iso: string) {
+  return new Intl.DateTimeFormat("en-GH", {
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(iso));
+}

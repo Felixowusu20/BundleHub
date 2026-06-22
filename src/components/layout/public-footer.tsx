@@ -26,17 +26,16 @@ export function PublicFooter() {
           </ul>
         </div>
         <div>
-          <h4 className="mb-3 text-sm font-semibold">Services</h4>
+          <h4 className="mb-3 text-sm font-semibold">Support</h4>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>MTN Data Bundles</li>
-            <li>Telecel Airtime</li>
-            <li>ECG & Water</li>
-            <li>WAEC Vouchers</li>
+            <li><Link href="/help" className="hover:text-foreground">Help centre</Link></li>
+            <li><Link href="/auth/register" className="hover:text-foreground">Become a seller</Link></li>
+            <li><Link href="/auth/login" className="hover:text-foreground">Sign in</Link></li>
           </ul>
         </div>
       </div>
       <div className="border-t py-6 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} BundleHub. Frontend demo — mock data only.
+        © {new Date().getFullYear()} BundleHub. All rights reserved.
       </div>
     </footer>
   );

@@ -18,6 +18,10 @@ export type OrderStatus =
   | "cancelled"
   | "disputed";
 
+export type PricingModel = "fixed" | "per_gb";
+
+export type MobileNetwork = "MTN" | "Telecel" | "AirtelTigo";
+
 export interface OrderDetails {
   phoneNumber?: string;
   meterNumber?: string;
@@ -26,6 +30,7 @@ export interface OrderDetails {
   network?: string;
   packageName?: string;
   quantity?: number;
+  quantityGb?: number;
   amount?: number;
   notes?: string;
 }
@@ -113,11 +118,25 @@ export interface ServiceListing {
   description: string;
   shopId: string;
   priceGhs: number;
+  pricingModel?: PricingModel;
+  pricePerGb?: number;
+  minGb?: number;
+  maxGb?: number;
+  /** Preset GB sizes buyers can pick (e.g. 1, 2, 5, 10). Falls back to standard tiers in range. */
+  gbTiers?: number[];
+  network?: MobileNetwork;
   inStock: boolean;
   rating: number;
   trustScore: number;
   deliverySpeedMins: number;
 }
+
+export type ServiceListingInput = Omit<
+  ServiceListing,
+  "id" | "shopId" | "rating" | "trustScore"
+>;
+
+export type UpdateServiceInput = Partial<ServiceListingInput>;
 
 export interface Order {
   id: string;
@@ -148,7 +167,6 @@ export interface WalletTransaction {
 export interface PlaceOrderInput {
   serviceId: string;
   details: OrderDetails;
-  momoReceipt: MomoReceiptInput;
 }
 
 export interface Review {

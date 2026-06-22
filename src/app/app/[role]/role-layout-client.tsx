@@ -3,22 +3,14 @@
 import React, { useEffect, useState } from "react";
 import { notFound, useRouter } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
+import { PageLoader } from "@/components/shared/page-loader";
 import { usePlatformStore } from "@/stores/platform-store";
-import { useCurrentUser } from "@/hooks/use-platform";
+import { useAuthSession } from "@/providers/auth-provider";
 import type { Role } from "@/types/marketplace";
-import type { AccountRole } from "@/types/auth";
-import { Skeleton } from "@/components/ui/skeleton";
 
 function isRole(x: string): x is Role {
   return ["customer", "shop_owner", "shop_staff", "super_admin"].includes(x);
 }
-
-const roleMap: Record<Role, AccountRole> = {
-  customer: "customer",
-  shop_owner: "shop_owner",
-  shop_staff: "shop_staff",
-  super_admin: "super_admin"
-};
 
 export function RoleLayoutClient({
   role,
@@ -29,37 +21,36 @@ export function RoleLayoutClient({
 }) {
   const router = useRouter();
   const initialize = usePlatformStore((s) => s.initialize);
-  const session = usePlatformStore((s) => s.session);
-  const user = useCurrentUser();
-  const [hydrated, setHydrated] = useState(false);
+  const { user, loading } = useAuthSession();
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     initialize();
-    setHydrated(true);
+    setReady(true);
   }, [initialize]);
 
   useEffect(() => {
-    if (!hydrated) return;
-    if (!session || !user) {
+    if (!ready || loading) return;
+    if (!user) {
       router.replace("/auth/login");
       return;
     }
-    if (isRole(role) && user.role !== roleMap[role]) {
+    if (!user.emailVerified) {
+      router.replace(`/auth/verify-email?email=${encodeURIComponent(user.email)}`);
+      return;
+    }
+    if (isRole(role) && user.role !== role) {
       router.replace(`/app/${user.role}`);
     }
-  }, [hydrated, session, user, role, router]);
+  }, [ready, loading, user, role, router]);
 
   if (!isRole(role)) return notFound();
 
-  if (!hydrated || !session || !user) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center p-8">
-        <Skeleton className="h-64 w-full max-w-md" />
-      </div>
-    );
+  if (!ready || loading || !user) {
+    return <PageLoader label="Loading your workspace…" />;
   }
 
-  if (user.role !== roleMap[role]) return null;
+  if (user.role !== role) return null;
 
   return <AppShell role={role}>{children}</AppShell>;
 }

@@ -3,12 +3,14 @@ import {
   BarChart3,
   Building2,
   CreditCard,
+  FileText,
   Headphones,
   LayoutDashboard,
   MessageSquare,
   Package,
   Settings,
   ShoppingBag,
+  Shield,
   Store,
   Tag,
   Users,
@@ -31,11 +33,13 @@ export function getNavItems(role: Role): NavItem[] {
         { label: "Marketplace", href: `${base}/marketplace`, icon: ShoppingBag },
         { label: "Orders", href: `${base}/orders`, icon: Package },
         { label: "Wallet", href: `${base}/wallet`, icon: Wallet },
-        { label: "Messages", href: `${base}/messages`, icon: MessageSquare }
+        { label: "Messages", href: `${base}/messages`, icon: MessageSquare },
+        { label: "Settings", href: `${base}/settings`, icon: Settings }
       ];
     case "shop_owner":
       return [
         { label: "Dashboard", href: base, icon: LayoutDashboard },
+        { label: "My Shop", href: `${base}/shop`, icon: Store },
         { label: "Orders", href: `${base}/orders`, icon: Package },
         { label: "Services", href: `${base}/services`, icon: Tag },
         { label: "Customers", href: `${base}/customers`, icon: Users },
@@ -55,11 +59,13 @@ export function getNavItems(role: Role): NavItem[] {
       return [
         { label: "Dashboard", href: base, icon: LayoutDashboard },
         { label: "Shops", href: `${base}/shops`, icon: Store },
+        { label: "Team", href: `${base}/admins`, icon: Shield },
         { label: "Customers", href: `${base}/customers`, icon: Users },
         { label: "Orders", href: `${base}/orders`, icon: Package },
         { label: "Services", href: `${base}/services`, icon: Tag },
         { label: "Commissions", href: `${base}/commissions`, icon: CreditCard },
         { label: "Analytics", href: `${base}/analytics`, icon: BarChart3 },
+        { label: "Homepage CMS", href: `${base}/homepage`, icon: FileText },
         { label: "Settings", href: `${base}/settings`, icon: Settings }
       ];
   }

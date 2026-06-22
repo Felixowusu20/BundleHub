@@ -1,0 +1,372 @@
+// BundleHub — Neon PostgreSQL schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  CUSTOMER
+  SHOP_OWNER
+  SHOP_STAFF
+  SUPER_ADMIN
+  SUB_ADMIN
+}
+
+enum AdminTier {
+  PRIMARY
+  SUB
+}
+
+enum ShopStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum LoyaltyLevel {
+  Bronze
+  Silver
+  Gold
+  Platinum
+  Diamond
+}
+
+enum OrderStatus {
+  PENDING
+  ACCEPTED
+  PROCESSING
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum PricingModel {
+  FIXED
+  PER_GB
+}
+
+enum WalletTxType {
+  CREDIT
+  DEBIT
+}
+
+enum MessageSender {
+  CUSTOMER
+  SHOP
+  SYSTEM
+}
+
+enum StaffRoleTitle {
+  Support
+  Fulfillment
+  Manager
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String
+  name         String
+  phone        String?
+  city         String?
+  role         UserRole     @default(CUSTOMER)
+  adminTier    AdminTier?
+  avatarUrl    String?
+  walletBalance Decimal     @default(500) @db.Decimal(12, 2)
+  loyaltyLevel LoyaltyLevel @default(Bronze)
+  emailVerifiedAt DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  createdById String?
+  createdBy   User?  @relation("AdminHierarchy", fields: [createdById], references: [id], onDelete: SetNull)
+  subAdmins   User[] @relation("AdminHierarchy")
+
+  shop Shop?
+
+  passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  ordersAsCustomer Order[] @relation("CustomerOrders")
+  walletTransactions WalletTransaction[]
+  reviews Review[]
+  notifications AppNotification[]
+  conversationsAsCustomer Conversation[] @relation("CustomerConversations")
+
+  @@index([role])
+  @@index([createdById])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Shop {
+  id            String     @id @default(cuid())
+  name          String
+  description   String?
+  phone         String
+  city          String
+  status        ShopStatus @default(PENDING)
+  trustScore    Int        @default(50)
+  rating        Decimal    @default(0) @db.Decimal(3, 2)
+  featured      Boolean    @default(false)
+  badges        Json       @default("[]")
+  verification  Json       @default("[]")
+  ownerId       String     @unique
+  owner         User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  services      Service[]
+  orders        Order[]
+  staff         StaffMember[]
+  conversations Conversation[]
+  reviews       Review[]
+
+  @@index([status])
+  @@index([trustScore])
+}
+
+model HomepageSection {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  title     String
+  subtitle  String?
+  updatedAt DateTime @updatedAt
+}
+
+model HomepageFeature {
+  id          String   @id @default(cuid())
+  icon        String
+  title       String
+  description String
+  color       String   @default("mtn")
+  sortOrder   Int      @default(0)
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([sortOrder])
+  @@index([published])
+}
+
+model HomepageService {
+  id        String   @id @default(cuid())
+  name      String
+  emoji     String
+  brands    String
+  network   String
+  sortOrder Int      @default(0)
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
+  @@index([published])
+}
+
+model HomepageTestimonial {
+  id        String   @id @default(cuid())
+  name      String
+  city      String
+  text      String
+  rating    Int      @default(5)
+  sortOrder Int      @default(0)
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
+  @@index([published])
+}
+
+model HomepageStats {
+  id                String   @id @default("main")
+  ordersProcessed   Int      @default(0)
+  platformRevenueGhs Decimal @default(0) @db.Decimal(14, 2)
+  updatedAt         DateTime @updatedAt
+}
+
+model Service {
+  id                String        @id @default(cuid())
+  shopId            String
+  shop              Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  category          String
+  name              String
+  description       String        @default("")
+  priceGhs          Decimal       @db.Decimal(12, 2)
+  pricingModel      PricingModel  @default(FIXED)
+  pricePerGb        Decimal?      @db.Decimal(12, 2)
+  minGb             Int?
+  maxGb             Int?
+  gbTiers           Json?
+  network           String?
+  inStock           Boolean       @default(true)
+  rating            Decimal       @default(0) @db.Decimal(3, 2)
+  trustScore        Int           @default(50)
+  deliverySpeedMins Int           @default(15)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  orders            Order[]
+  reviews           Review[]
+
+  @@index([shopId])
+  @@index([category])
+}
+
+model Order {
+  id                    String             @id @default(cuid())
+  customerId            String
+  customer              User               @relation("CustomerOrders", fields: [customerId], references: [id])
+  shopId                String
+  shop                  Shop               @relation(fields: [shopId], references: [id])
+  serviceId             String
+  service               Service            @relation(fields: [serviceId], references: [id])
+  conversation          Conversation?
+  amountGhs             Decimal            @db.Decimal(12, 2)
+  platformCommissionGhs Decimal            @db.Decimal(12, 2)
+  status                OrderStatus        @default(PENDING)
+  details               Json?
+  momoReceipt           Json?
+  reviewSubmitted       Boolean            @default(false)
+  timeline              OrderStatusEvent[]
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  @@index([customerId])
+  @@index([shopId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderStatusEvent {
+  id      String      @id @default(cuid())
+  orderId String
+  order   Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status  OrderStatus
+  at      DateTime    @default(now())
+
+  @@index([orderId])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  orderId    String   @unique
+  customerId String
+  customer   User     @relation(fields: [customerId], references: [id])
+  shopId     String
+  shop       Shop     @relation(fields: [shopId], references: [id])
+  serviceId  String?
+  service    Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  rating     Int
+  title      String
+  body       String
+  createdAt  DateTime @default(now())
+
+  @@index([shopId])
+  @@index([customerId])
+}
+
+model Conversation {
+  id            String    @id @default(cuid())
+  customerId    String
+  customer      User      @relation("CustomerConversations", fields: [customerId], references: [id])
+  shopId        String
+  shop          Shop      @relation(fields: [shopId], references: [id])
+  orderId       String?   @unique
+  order         Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  lastMessageAt DateTime  @default(now())
+  messages      Message[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([customerId])
+  @@index([shopId])
+  @@index([lastMessageAt])
+}
+
+model Message {
+  id             String        @id @default(cuid())
+  conversationId String
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  from           MessageSender
+  body           String
+  read           Boolean       @default(false)
+  attachment     Json?
+  at             DateTime      @default(now())
+
+  @@index([conversationId])
+  @@index([at])
+}
+
+model StaffMember {
+  id               String         @id @default(cuid())
+  shopId           String
+  shop             Shop           @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  name             String
+  roleTitle        StaffRoleTitle @default(Support)
+  phone            String
+  performanceScore Int            @default(80)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([shopId])
+}
+
+model WalletTransaction {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      WalletTxType
+  amountGhs Decimal      @db.Decimal(12, 2)
+  label     String
+  orderId   String?
+  at        DateTime     @default(now())
+
+  @@index([userId])
+  @@index([at])
+}
+
+model AppNotification {
+  id     String   @id @default(cuid())
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title  String
+  body   String
+  kind   String
+  href   String?
+  read   Boolean  @default(false)
+  at     DateTime @default(now())
+
+  @@index([userId])
+  @@index([read])
+  @@index([at])
+}

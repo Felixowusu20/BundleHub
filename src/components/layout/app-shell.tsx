@@ -11,7 +11,9 @@ import { CommandPalette } from "@/components/shared/command-palette";
 import { OrderReviewDialog } from "@/components/shared/order-review-dialog";
 import { useAppStore } from "@/stores/app-store";
 import { usePlatformStore } from "@/stores/platform-store";
-import { useCurrentUser } from "@/hooks/use-platform";
+import { useAuthUser, useCurrentUser } from "@/hooks/use-platform";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { useAuthSession } from "@/providers/auth-provider";
 import { getNavItems, roleLabels } from "@/lib/navigation";
 import type { Role } from "@/types/marketplace";
 import { cn } from "@/lib/utils";
@@ -24,8 +26,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-
 export function AppShell({
   role,
   children
@@ -37,19 +37,15 @@ export function AppShell({
   const router = useRouter();
   const setCommandOpen = useAppStore((s) => s.setCommandOpen);
   const user = useCurrentUser();
+  const authUser = useAuthUser();
+  const { setUser } = useAuthSession();
   const logout = usePlatformStore((s) => s.logout);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const nav = getNavItems(role);
 
-  const initials =
-    user?.name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase() ?? "BH";
-
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    setUser(null);
     logout();
     router.push("/auth/login");
   };
@@ -154,9 +150,12 @@ export function AppShell({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="gap-2 rounded-full pl-1 pr-3">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback>{initials}</AvatarFallback>
-                </Avatar>
+                <UserAvatar
+                  email={authUser?.email ?? user?.email ?? "user@bundlehub.gh"}
+                  name={authUser?.name ?? user?.name}
+                  avatarUrl={authUser?.avatarUrl}
+                  className="h-8 w-8"
+                />
                 <span className="hidden max-w-[120px] truncate text-sm font-medium sm:inline">
                   {user?.name ?? "User"}
                 </span>

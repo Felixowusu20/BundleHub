@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,14 @@ import { usePlatformStore } from "@/stores/platform-store";
 import { useCurrentUser } from "@/hooks/use-platform";
 import { formatGhs, formatDate } from "@/lib/format";
 import type { Order, OrderStatus, Role } from "@/types/marketplace";
-import { CheckCircle2, Circle, Clock, MessageSquare, Star } from "lucide-react";
+import { AdminOrdersView } from "@/features/admin/admin-orders-view";
+import { CheckCircle2, Circle, Clock, MessageSquare, Star, AlertTriangle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 
 const statuses: OrderStatus[] = [
   "pending",
@@ -64,6 +72,7 @@ function OrderDetailsBlock({ order }: { order: Order }) {
     d.meterNumber && `Meter: ${d.meterNumber}`,
     d.accountNumber && `Account: ${d.accountNumber}`,
     d.smartCardNumber && `Smart card: ${d.smartCardNumber}`,
+    d.quantityGb && `Data: ${d.quantityGb} GB`,
     d.quantity && `Qty: ${d.quantity}`,
     d.notes && `Notes: ${d.notes}`
   ].filter(Boolean);
@@ -81,17 +90,19 @@ function OrderDetailsBlock({ order }: { order: Order }) {
 
 function OrderActions({
   order,
-  role
+  role,
+  onDispute
 }: {
   order: Order;
   role: Role;
+  onDispute: (orderId: string) => void;
 }) {
   const updateOrderStatus = usePlatformStore((s) => s.updateOrderStatus);
   const promptReview = usePlatformStore((s) => s.promptReview);
   const messagesPath = `/app/${role}/messages?c=${order.conversationId ?? ""}`;
 
-  const act = (status: OrderStatus, label: string) => {
-    const result = updateOrderStatus(order.id, status);
+  const act = async (status: OrderStatus, label: string) => {
+    const result = await updateOrderStatus(order.id, status);
     if (!result.ok) toast.error(result.error);
     else toast.success(label);
   };
@@ -135,7 +146,35 @@ function OrderActions({
     );
   }
 
+  if (role === "shop_staff") {
+    return (
+      <div className="mt-4 flex flex-wrap gap-2">
+        {order.status === "accepted" && (
+          <Button size="sm" variant="brand" onClick={() => act("processing", "Order processing")}>
+            Mark processing
+          </Button>
+        )}
+        {order.status === "processing" && (
+          <Button size="sm" variant="brand" onClick={() => act("completed", "Order completed")}>
+            Mark completed
+          </Button>
+        )}
+        {order.conversationId && (
+          <Button size="sm" variant="outline" asChild>
+            <Link href={messagesPath}>
+              <MessageSquare className="mr-1 h-4 w-4" />
+              Message customer
+            </Link>
+          </Button>
+        )}
+      </div>
+    );
+  }
+
   if (role === "customer" && order.conversationId) {
+    const canDispute = ["pending", "accepted", "processing", "completed"].includes(
+      order.status
+    );
     return (
       <div className="mt-4 flex flex-wrap gap-2">
         <Button size="sm" variant="outline" asChild>
@@ -144,6 +183,17 @@ function OrderActions({
             Message shop
           </Link>
         </Button>
+        {canDispute && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-telecel hover:text-telecel"
+            onClick={() => onDispute(order.id)}
+          >
+            <AlertTriangle className="mr-1 h-4 w-4" />
+            Open dispute
+          </Button>
+        )}
         {order.status === "completed" && !order.reviewSubmitted && (
           <Button
             size="sm"
@@ -168,12 +218,33 @@ export function OrdersView() {
   const orders = usePlatformStore((s) => s.orders);
   const allServices = usePlatformStore((s) => s.services);
   const allShops = usePlatformStore((s) => s.shops);
+  const openDispute = usePlatformStore((s) => s.openDispute);
+
+  const [disputeOrderId, setDisputeOrderId] = useState<string | null>(null);
+  const [disputeReason, setDisputeReason] = useState("");
 
   let list = orders;
   if (role === "customer" && user) {
     list = orders.filter((o) => o.customerId === user.id);
   } else if (role === "shop_owner" && user?.shopId) {
     list = orders.filter((o) => o.shopId === user.shopId);
+  } else if (role === "shop_staff" && user?.employerShopId) {
+    list = orders.filter((o) => o.shopId === user.employerShopId);
+  }
+
+  const handleDispute = async () => {
+    if (!disputeOrderId) return;
+    const result = await openDispute(disputeOrderId, disputeReason);
+    if (!result.ok) toast.error(result.error);
+    else {
+      toast.success("Dispute opened — shop and support notified");
+      setDisputeOrderId(null);
+      setDisputeReason("");
+    }
+  };
+
+  if (role === "super_admin") {
+    return <AdminOrdersView />;
   }
 
   return (
@@ -183,7 +254,9 @@ export function OrdersView() {
         <p className="text-sm text-muted-foreground">
           {role === "shop_owner"
             ? "Review requests, fulfill orders, and message customers"
-            : "Track your purchases from pending to completed"}
+            : role === "shop_staff"
+              ? "Orders assigned to your shop — fulfill and message customers"
+              : "Track your purchases from pending to completed"}
         </p>
       </div>
 
@@ -245,7 +318,11 @@ export function OrdersView() {
                           <OrderTimeline status={o.status} />
                         )}
 
-                        <OrderActions order={o} role={role} />
+                        <OrderActions
+                          order={o}
+                          role={role}
+                          onDispute={setDisputeOrderId}
+                        />
                       </CardContent>
                     </Card>
                   );
@@ -255,6 +332,30 @@ export function OrdersView() {
           );
         })}
       </Tabs>
+
+      <Dialog
+        open={!!disputeOrderId}
+        onOpenChange={(open) => !open && setDisputeOrderId(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Open dispute</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Describe the issue. The shop will be notified in the order chat.
+          </p>
+          <textarea
+            value={disputeReason}
+            onChange={(e) => setDisputeReason(e.target.value)}
+            rows={4}
+            placeholder="e.g. Data not received after 2 hours…"
+            className="flex w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
+          />
+          <Button variant="brand" onClick={handleDispute}>
+            Submit dispute
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

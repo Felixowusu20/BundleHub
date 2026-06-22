@@ -40,12 +40,12 @@ export function OrderReviewDialog() {
     setBody("");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pendingReviewOrderId || rating < 1) return;
 
     setSubmitting(true);
-    const result = submitReview(pendingReviewOrderId, rating, title.trim(), body.trim());
+    const result = await submitReview(pendingReviewOrderId, rating, title.trim(), body.trim());
     setSubmitting(false);
 
     if (!result.ok) {

@@ -15,6 +15,12 @@ import { toast } from "sonner";
 import { usePlatformStore } from "@/stores/platform-store";
 import { useActiveShops, useCurrentUser } from "@/hooks/use-platform";
 import { formatGhs } from "@/lib/format";
+import { shopMarketplacePath } from "@/lib/marketplace-paths";
+import {
+  formatServiceFromLabel,
+  getServiceFromPrice,
+  isPerGbService
+} from "@/lib/pricing";
 import { getCompletedOrderCount, sortShopsByTransactions } from "@/lib/shop-ranking";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -23,7 +29,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrustScore } from "@/components/shared/trust-score";
 import { StarRating } from "@/components/shared/star-rating";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 import { PlaceOrderDialog } from "@/features/orders/place-order-dialog";
+import { ShopBrowserSection } from "@/features/marketplace/shop-browser-section";
 import type { ServiceCategory, ServiceListing } from "@/types/marketplace";
 
 const categories: ServiceCategory[] = [
@@ -51,6 +64,10 @@ export function MarketplaceView() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<ServiceCategory | "All">("All");
   const [sort, setSort] = useState<"popular" | "price" | "trust" | "rating">("popular");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [inStockOnly, setInStockOnly] = useState(false);
+  const [minTrust, setMinTrust] = useState(0);
+  const [networkFilter, setNetworkFilter] = useState<string>("all");
   const [orderTarget, setOrderTarget] = useState<{
     service: ServiceListing;
     shopId: string;
@@ -59,6 +76,12 @@ export function MarketplaceView() {
   const handleOrderClick = (service: ServiceListing) => {
     const shop = allShops.find((s) => s.id === service.shopId);
     if (!shop) return;
+    if (isPerGbService(service)) {
+      router.push(
+        `${shopMarketplacePath(shop.id, user?.role)}?service=${service.id}`
+      );
+      return;
+    }
     if (!user) {
       toast.message("Sign in to place orders");
       router.push("/auth/login");
@@ -90,6 +113,13 @@ export function MarketplaceView() {
   const filtered = useMemo(() => {
     let list = [...services];
     if (category !== "All") list = list.filter((s) => s.category === category);
+    if (inStockOnly) list = list.filter((s) => s.inStock);
+    if (minTrust > 0) list = list.filter((s) => s.trustScore >= minTrust);
+    if (networkFilter !== "all") {
+      list = list.filter(
+        (s) => s.network?.toLowerCase() === networkFilter.toLowerCase()
+      );
+    }
     if (query.trim()) {
       const q = query.toLowerCase();
       list = list.filter((s) => {
@@ -109,12 +139,15 @@ export function MarketplaceView() {
         if (b.rating !== a.rating) return b.rating - a.rating;
         return b.trustScore - a.trustScore;
       }
-      if (sort === "price") return a.priceGhs - b.priceGhs;
+      if (sort === "price") return getServiceFromPrice(a) - getServiceFromPrice(b);
       if (sort === "rating") return b.rating - a.rating;
       return b.trustScore - a.trustScore;
     });
     return list;
-  }, [category, query, sort, shopMap, services, shopTransactionCount]);
+  }, [category, query, sort, shopMap, services, shopTransactionCount, inStockOnly, minTrust, networkFilter]);
+
+  const activeFilterCount =
+    (inStockOnly ? 1 : 0) + (minTrust > 0 ? 1 : 0) + (networkFilter !== "all" ? 1 : 0);
 
   const grouped = useMemo(() => {
     const map = new Map<string, typeof services>();
@@ -140,27 +173,29 @@ export function MarketplaceView() {
             Marketplace
           </h1>
           <p className="mt-3 max-w-xl text-white/85">
-            MTN data, Telecel airtime, ECG tokens & more — find the best seller for every service.
+            Affordable data, airtime & bills — pick your network and buy from trusted sellers in
+            minutes.
           </p>
           <div className="relative mt-8 max-w-2xl">
-            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search MTN 10GB, ECG, DStv, WAEC…"
-              className="h-14 rounded-2xl border-0 bg-white pl-12 text-base text-foreground shadow-xl"
+              className="h-14 rounded-2xl border-0 bg-white pl-12 text-base text-charcoal shadow-xl placeholder:text-gray-500 focus-visible:ring-mtn/40"
             />
           </div>
         </div>
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-8">
-        <Tabs defaultValue="services">
+        <Tabs defaultValue="quick">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <TabsList className="h-auto flex-wrap">
-              <TabsTrigger value="services">Services</TabsTrigger>
-              <TabsTrigger value="compare">Price Compare</TabsTrigger>
-              <TabsTrigger value="agents">Top Agents</TabsTrigger>
+              <TabsTrigger value="quick">Browse shops</TabsTrigger>
+              <TabsTrigger value="services">All services</TabsTrigger>
+              <TabsTrigger value="compare">Price compare</TabsTrigger>
+              <TabsTrigger value="agents">Top sellers</TabsTrigger>
             </TabsList>
             <div className="flex gap-2">
               <Button
@@ -181,9 +216,12 @@ export function MarketplaceView() {
                 <ArrowUpDown className="h-4 w-4" />
                 Sort: {sort === "popular" ? "top sellers" : sort}
               </Button>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={() => setFiltersOpen(true)}>
                 <Filter className="h-4 w-4" />
                 Filters
+                {activeFilterCount > 0 && (
+                  <Badge className="ml-1 gradient-mtn text-charcoal">{activeFilterCount}</Badge>
+                )}
               </Button>
             </div>
           </div>
@@ -213,7 +251,32 @@ export function MarketplaceView() {
             ))}
           </div>
 
+          <TabsContent value="quick" className="mt-6">
+            <ShopBrowserSection services={services} />
+          </TabsContent>
+
           <TabsContent value="services" className="mt-6">
+            {filtered.length === 0 ? (
+              <Card className="border-0 p-12 text-center shadow-card">
+                <p className="font-medium">No services match your filters</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Try clearing filters or browse shops for per-GB data plans.
+                </p>
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => {
+                    setQuery("");
+                    setCategory("All");
+                    setInStockOnly(false);
+                    setMinTrust(0);
+                    setNetworkFilter("all");
+                  }}
+                >
+                  Clear filters
+                </Button>
+              </Card>
+            ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.slice(0, 24).map((svc, i) => {
                 const shop = shopMap.get(svc.shopId);
@@ -245,7 +308,7 @@ export function MarketplaceView() {
                         <div className="mt-4 flex items-end justify-between">
                           <div>
                             <p className="font-display text-2xl font-bold text-mtn">
-                              {formatGhs(svc.priceGhs)}
+                              {formatServiceFromLabel(svc)}
                             </p>
                             <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                               <StarRating rating={svc.rating} size="sm" />
@@ -267,7 +330,7 @@ export function MarketplaceView() {
                           onClick={() => handleOrderClick(svc)}
                           disabled={!svc.inStock}
                         >
-                          Order now
+                          {isPerGbService(svc) ? "Choose GB" : "Order now"}
                         </Button>
                       </CardContent>
                     </Card>
@@ -275,6 +338,7 @@ export function MarketplaceView() {
                 );
               })}
             </div>
+            )}
           </TabsContent>
 
           <TabsContent value="compare" className="mt-6 space-y-6">
@@ -373,6 +437,57 @@ export function MarketplaceView() {
           onOpenChange={(open) => !open && setOrderTarget(null)}
         />
       )}
+
+      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Filter services</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={inStockOnly}
+                onChange={(e) => setInStockOnly(e.target.checked)}
+              />
+              In stock only
+            </label>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Minimum trust score</label>
+              <select
+                value={minTrust}
+                onChange={(e) => setMinTrust(Number(e.target.value))}
+                className="flex h-10 w-full rounded-xl border border-input bg-background px-3 text-sm"
+              >
+                <option value={0}>Any</option>
+                <option value={60}>60+</option>
+                <option value={75}>75+</option>
+                <option value={90}>90+</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Network</label>
+              <select
+                value={networkFilter}
+                onChange={(e) => setNetworkFilter(e.target.value)}
+                className="flex h-10 w-full rounded-xl border border-input bg-background px-3 text-sm"
+              >
+                <option value="all">All networks</option>
+                <option value="MTN">MTN</option>
+                <option value="Telecel">Telecel</option>
+                <option value="AirtelTigo">AirtelTigo</option>
+              </select>
+            </div>
+            <Button
+              variant="brand"
+              className="w-full"
+              onClick={() => setFiltersOpen(false)}
+            >
+              Apply filters
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { NotificationCenter } from "@/components/shared/notification-center";
 import { useAppStore } from "@/stores/app-store";
-import { usePlatformStore } from "@/stores/platform-store";
+import { useAuthSession } from "@/providers/auth-provider";
 import { useCurrentUser } from "@/hooks/use-platform";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -21,10 +21,11 @@ const links = [
 export function PublicHeader() {
   const pathname = usePathname();
   const setCommandOpen = useAppStore((s) => s.setCommandOpen);
-  const session = usePlatformStore((s) => s.session);
+  const { user: authUser, loading } = useAuthSession();
   const user = useCurrentUser();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const isSignedIn = Boolean(authUser);
   const dashboardHref = user ? `/app/${user.role}` : "/auth/login";
 
   return (
@@ -63,9 +64,9 @@ export function PublicHeader() {
           >
             <Search className="h-5 w-5" />
           </Button>
-          {session && <NotificationCenter />}
+          {!loading && isSignedIn && <NotificationCenter />}
           <ThemeToggle />
-          {session ? (
+          {!loading && isSignedIn ? (
             <Button variant="brand" size="sm" className="hidden sm:inline-flex" asChild>
               <Link href={dashboardHref}>Dashboard</Link>
             </Button>
@@ -102,7 +103,7 @@ export function PublicHeader() {
               {l.label}
             </Link>
           ))}
-          {session ? (
+          {!loading && isSignedIn ? (
             <Link
               href={dashboardHref}
               onClick={() => setMobileOpen(false)}

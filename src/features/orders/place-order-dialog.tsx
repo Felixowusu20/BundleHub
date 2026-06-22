@@ -1,13 +1,21 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ImagePlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { usePlatformStore } from "@/stores/platform-store";
 import { useCurrentUser } from "@/hooks/use-platform";
 import { formatGhs } from "@/lib/format";
+import { GbSizeGrid } from "@/components/shared/gb-size-grid";
+import {
+  calculateOrderAmount,
+  formatServiceFromLabel,
+  formatServicePriceLabel,
+  getAvailableGbTiers,
+  isPerGbService,
+  isValidGbTier
+} from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,11 +24,10 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
+import { customerProofChatUrl } from "@/lib/chat-routes";
 import type { OrderDetails, ServiceListing, Shop } from "@/types/marketplace";
 
 const networks = ["MTN", "Telecel", "AirtelTigo"] as const;
-const momoProviders = ["MTN MoMo", "Telecel Cash", "AirtelTigo Money"] as const;
-const MAX_SCREENSHOT_BYTES = 1_500_000;
 
 type Props = {
   service: ServiceListing;
@@ -33,22 +40,30 @@ export function PlaceOrderDialog({ service, shop, open, onOpenChange }: Props) {
   const router = useRouter();
   const user = useCurrentUser();
   const placeOrder = usePlatformStore((s) => s.placeOrder);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const perGb = isPerGbService(service);
+  const tiers = useMemo(() => getAvailableGbTiers(service), [service]);
 
   const [phoneNumber, setPhoneNumber] = useState(user?.phone ?? "");
-  const [network, setNetwork] = useState<string>("MTN");
+  const [network, setNetwork] = useState<string>(service.network ?? "MTN");
+  const [selectedGb, setSelectedGb] = useState(tiers[0] ?? 1);
   const [meterNumber, setMeterNumber] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [smartCardNumber, setSmartCardNumber] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [notes, setNotes] = useState("");
-  const [momoProvider, setMomoProvider] = useState<string>("MTN MoMo");
-  const [momoReference, setMomoReference] = useState("");
-  const [screenshot, setScreenshot] = useState<{
-    dataUrl: string;
-    name: string;
-  } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const gbValue = selectedGb;
+
+  const orderAmount = useMemo(
+    () =>
+      calculateOrderAmount(service, {
+        quantityGb: perGb ? gbValue : undefined,
+        quantity: Number(quantity) || 1
+      }),
+    [service, perGb, gbValue, quantity]
+  );
 
   const buildDetails = (): OrderDetails => {
     const base: OrderDetails = {
@@ -57,6 +72,12 @@ export function PlaceOrderDialog({ service, shop, open, onOpenChange }: Props) {
     };
     switch (service.category) {
       case "Data Bundles":
+        return {
+          ...base,
+          network: perGb ? service.network ?? network : network,
+          packageName: service.name,
+          quantityGb: perGb ? gbValue : undefined
+        };
       case "Airtime":
         return { ...base, network, packageName: service.name };
       case "Electricity":
@@ -77,26 +98,7 @@ export function PlaceOrderDialog({ service, shop, open, onOpenChange }: Props) {
     }
   };
 
-  const handleScreenshot = (file: File | undefined) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please upload an image (screenshot or photo of your payment).");
-      return;
-    }
-    if (file.size > MAX_SCREENSHOT_BYTES) {
-      toast.error("Image is too large. Please use a screenshot under 1.5 MB.");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setScreenshot({ dataUrl: reader.result, name: file.name });
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
       toast.error("Please sign in as a customer to place orders.");
@@ -110,21 +112,15 @@ export function PlaceOrderDialog({ service, shop, open, onOpenChange }: Props) {
       toast.error("Phone number is required.");
       return;
     }
-    if (!momoReference.trim() && !screenshot) {
-      toast.error("Add your MoMo reference or upload a payment screenshot.");
+    if (perGb && !isValidGbTier(service, gbValue)) {
+      toast.error("Pick a valid data size.");
       return;
     }
 
     setSubmitting(true);
-    const result = placeOrder({
+    const result = await placeOrder({
       serviceId: service.id,
-      details: buildDetails(),
-      momoReceipt: {
-        provider: momoProvider,
-        reference: momoReference.trim() || undefined,
-        screenshotDataUrl: screenshot?.dataUrl,
-        screenshotName: screenshot?.name
-      }
+      details: buildDetails()
     });
     setSubmitting(false);
 
@@ -134,8 +130,8 @@ export function PlaceOrderDialog({ service, shop, open, onOpenChange }: Props) {
     }
 
     onOpenChange(false);
-    toast.success("Payment sent — opening chat…");
-    router.push(`/app/customer/messages?c=${result.conversationId}`);
+    toast.success(`Paid ${formatGhs(orderAmount)} — send MoMo proof to ${shop.name}`);
+    router.replace(customerProofChatUrl(result.conversationId, result.orderId));
   };
 
   return (
@@ -148,9 +144,19 @@ export function PlaceOrderDialog({ service, shop, open, onOpenChange }: Props) {
         <div className="rounded-2xl bg-muted/50 p-4">
           <p className="font-medium">{service.name}</p>
           <p className="text-sm text-muted-foreground">{service.category}</p>
+          {perGb ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {formatServicePriceLabel(service)}
+            </p>
+          ) : null}
           <p className="mt-2 font-display text-2xl font-bold text-mtn">
-            {formatGhs(service.priceGhs)}
+            {perGb ? formatGhs(orderAmount) : formatServiceFromLabel(service)}
           </p>
+          {perGb && (
+            <p className="text-xs text-muted-foreground">
+              {gbValue} GB × {formatGhs(service.pricePerGb ?? 0)}/GB
+            </p>
+          )}
           {user && (
             <p className="mt-1 text-xs text-muted-foreground">
               Wallet balance: {formatGhs(user.walletBalanceGhs)}
@@ -174,34 +180,44 @@ export function PlaceOrderDialog({ service, shop, open, onOpenChange }: Props) {
           </p>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
+            {perGb && (
+              <GbSizeGrid
+                service={service}
+                tiers={tiers}
+                selectedGb={selectedGb}
+                onSelect={setSelectedGb}
+              />
+            )}
+
             <div>
-              <label className="mb-1.5 block text-sm font-medium">Phone number</label>
+              <label className="mb-1.5 block text-sm font-medium">Recipient phone</label>
               <Input
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 placeholder="0241234567"
-                required
+                required={service.category !== "Water"}
               />
             </div>
 
-            {(service.category === "Data Bundles" || service.category === "Airtime") && (
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">Network</label>
-                <div className="flex flex-wrap gap-2">
-                  {networks.map((n) => (
-                    <Button
-                      key={n}
-                      type="button"
-                      size="sm"
-                      variant={network === n ? "brand" : "outline"}
-                      onClick={() => setNetwork(n)}
-                    >
-                      {n}
-                    </Button>
-                  ))}
+            {(service.category === "Data Bundles" || service.category === "Airtime") &&
+              !perGb && (
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Network</label>
+                  <div className="flex flex-wrap gap-2">
+                    {networks.map((n) => (
+                      <Button
+                        key={n}
+                        type="button"
+                        size="sm"
+                        variant={network === n ? "brand" : "outline"}
+                        onClick={() => setNetwork(n)}
+                      >
+                        {n}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
             {service.category === "Electricity" && (
               <div>
@@ -250,6 +266,9 @@ export function PlaceOrderDialog({ service, shop, open, onOpenChange }: Props) {
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
                 />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Total: {formatGhs(orderAmount)}
+                </p>
               </div>
             )}
 
@@ -264,91 +283,20 @@ export function PlaceOrderDialog({ service, shop, open, onOpenChange }: Props) {
               />
             </div>
 
-            <div className="space-y-3 rounded-2xl border border-mtn/30 bg-mtn/5 p-4">
-              <div>
-                <p className="text-sm font-medium">I have paid (MoMo proof)</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  After paying, share your MoMo reference or payment screenshot.
-                  You&apos;ll be taken to chat while the seller verifies.
-                </p>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">MoMo provider</label>
-                <div className="flex flex-wrap gap-2">
-                  {momoProviders.map((p) => (
-                    <Button
-                      key={p}
-                      type="button"
-                      size="sm"
-                      variant={momoProvider === p ? "brand" : "outline"}
-                      onClick={() => setMomoProvider(p)}
-                    >
-                      {p}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">MoMo reference</label>
-                <Input
-                  value={momoReference}
-                  onChange={(e) => setMomoReference(e.target.value)}
-                  placeholder="Reference from MoMo SMS or app"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">Payment screenshot</label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => handleScreenshot(e.target.files?.[0])}
-                />
-                {screenshot ? (
-                  <div className="relative overflow-hidden rounded-xl border">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={screenshot.dataUrl}
-                      alt="MoMo payment proof"
-                      className="max-h-48 w-full object-contain bg-black/5"
-                    />
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="secondary"
-                      className="absolute right-2 top-2 h-8 w-8 rounded-full"
-                      onClick={() => setScreenshot(null)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full gap-2"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <ImagePlus className="h-4 w-4" />
-                    Upload screenshot
-                  </Button>
-                )}
-              </div>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              Pay from your wallet first. After payment, you can send MoMo proof in chat if you
+              also paid {shop.name} on MoMo ({shop.phone}).
+            </p>
 
             <Button
               type="submit"
               variant="brand"
               className="w-full"
-              disabled={submitting || user.walletBalanceGhs < service.priceGhs}
+              disabled={submitting || user.walletBalanceGhs < orderAmount}
             >
-              {user.walletBalanceGhs < service.priceGhs
-                ? "Insufficient balance"
-                : `I have paid — open chat`}
+              {user.walletBalanceGhs < orderAmount
+                ? `Need ${formatGhs(orderAmount - user.walletBalanceGhs)} more`
+                : `Pay ${formatGhs(orderAmount)}`}
             </Button>
           </form>
         )}

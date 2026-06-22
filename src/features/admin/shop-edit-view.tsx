@@ -100,7 +100,7 @@ export function ShopEditView({ shopId }: Props) {
     );
   }
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !ownerName.trim() || !phone.trim() || !city.trim()) {
       toast.error("Please fill in all required fields.");
@@ -119,7 +119,7 @@ export function ShopEditView({ shopId }: Props) {
     };
 
     setSaving(true);
-    const result = updateShop(shopId, input);
+    const result = await updateShop(shopId, input);
     setSaving(false);
 
     if (!result.ok) {
@@ -129,12 +129,12 @@ export function ShopEditView({ shopId }: Props) {
     toast.success("Shop updated successfully.");
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteConfirm !== shop.name) {
       toast.error("Type the shop name exactly to confirm deletion.");
       return;
     }
-    const result = deleteShop(shopId);
+    const result = await deleteShop(shopId);
     if (!result.ok) {
       toast.error(result.error);
       return;

@@ -1,11 +1,18 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 import { usePlatformStore } from "@/stores/platform-store";
 import { useCurrentUser } from "@/hooks/use-platform";
 import { formatGhs, formatRelative } from "@/lib/format";
@@ -16,8 +23,12 @@ export function WalletView() {
   const role = params.role === "shop_owner" ? "shop_owner" : "customer";
   const user = useCurrentUser();
   const topUpWallet = usePlatformStore((s) => s.topUpWallet);
+  const withdrawWallet = usePlatformStore((s) => s.withdrawWallet);
   const allTransactions = usePlatformStore((s) => s.walletTransactions);
   const orders = usePlatformStore((s) => s.orders);
+
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
 
   const transactions = useMemo(
     () => (user ? allTransactions.filter((t) => t.userId === user.id) : []),
@@ -39,9 +50,25 @@ export function WalletView() {
 
   const balance = user.walletBalanceGhs;
 
-  const handleTopUp = () => {
-    topUpWallet(user.id, 100);
-    toast.success("GHS 100 added to your wallet (mock)");
+  const handleTopUp = async () => {
+    await topUpWallet(user.id, 100);
+    toast.success("GHS 100 added to your wallet");
+  };
+
+  const handleWithdraw = async () => {
+    const amount = Number(withdrawAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error("Enter a valid amount.");
+      return;
+    }
+    const result = await withdrawWallet(amount);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(`GHS ${amount} sent to MoMo`);
+    setWithdrawOpen(false);
+    setWithdrawAmount("");
   };
 
   return (
@@ -49,7 +76,7 @@ export function WalletView() {
       <div>
         <h1 className="font-display text-2xl font-bold">Wallet</h1>
         <p className="text-sm text-muted-foreground">
-          {user.name} • Mock payments — no real gateway
+          {user.name} • Wallet balance from your account
         </p>
       </div>
 
@@ -66,7 +93,12 @@ export function WalletView() {
             </p>
           )}
           <div className="mt-6 flex gap-3">
-            <Button variant="secondary" size="sm" disabled>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={balance < 10}
+              onClick={() => setWithdrawOpen(true)}
+            >
               Withdraw
             </Button>
             <Button
@@ -131,6 +163,28 @@ export function WalletView() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={withdrawOpen} onOpenChange={setWithdrawOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Withdraw to MoMo</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Available: {formatGhs(balance)} • Minimum GHS 10
+          </p>
+          <Input
+            type="number"
+            min={10}
+            step={1}
+            placeholder="Amount in GHS"
+            value={withdrawAmount}
+            onChange={(e) => setWithdrawAmount(e.target.value)}
+          />
+          <Button variant="brand" className="w-full" onClick={handleWithdraw}>
+            Confirm withdrawal
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,35 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { usePlatformStore } from "@/stores/platform-store";
-import { useCurrentUser } from "@/hooks/use-platform";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageLoader } from "@/components/shared/page-loader";
+import { useAuthSession } from "@/providers/auth-provider";
 
 export default function AppEntryPage() {
   const router = useRouter();
-  const initialize = usePlatformStore((s) => s.initialize);
-  const session = usePlatformStore((s) => s.session);
-  const user = useCurrentUser();
-  const [ready, setReady] = useState(false);
+  const { user, loading } = useAuthSession();
 
   useEffect(() => {
-    initialize();
-    setReady(true);
-  }, [initialize]);
-
-  useEffect(() => {
-    if (!ready) return;
-    if (session && user) {
+    if (loading) return;
+    if (user) {
       router.replace(`/app/${user.role}`);
     } else {
       router.replace("/auth/login");
     }
-  }, [ready, session, user, router]);
+  }, [loading, user, router]);
 
-  return (
-    <div className="flex min-h-dvh items-center justify-center">
-      <Skeleton className="h-32 w-64" />
-    </div>
-  );
+  return <PageLoader label="Loading your workspace…" />;
 }

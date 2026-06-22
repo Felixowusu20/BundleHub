@@ -8,10 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TrustScore } from "@/components/shared/trust-score";
+import { DashboardWelcome } from "@/components/shared/dashboard-welcome";
 import { usePlatformStore } from "@/stores/platform-store";
+import { useAuthUser } from "@/hooks/use-platform";
 import { formatGhs, formatNumber } from "@/lib/format";
 
 export function AdminDashboard() {
+  const authUser = useAuthUser();
   const analytics = usePlatformStore((s) => s.analytics);
   const shops = usePlatformStore((s) => s.shops);
   const users = usePlatformStore((s) => s.users);
@@ -29,20 +32,35 @@ export function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-3xl bg-charcoal p-6 text-white md:p-8 dark:bg-card">
-        <p className="text-sm text-white/60">Super Admin</p>
-        <h1 className="font-display text-2xl font-bold md:text-3xl">
-          Platform <span className="text-mtn">Overview</span>
-        </h1>
-        <p className="mt-2 text-sm text-white/70">
-          {pendingCount} shop{pendingCount !== 1 ? "s" : ""} awaiting approval
-        </p>
-        {pendingCount > 0 && (
-          <Button className="mt-4" variant="default" asChild>
-            <Link href="/app/super_admin/shops">Review pending shops</Link>
-          </Button>
-        )}
-      </div>
+      {authUser ? (
+        <DashboardWelcome
+          user={authUser}
+          badge={authUser.isPrimaryAdmin ? "Primary admin" : "Platform admin"}
+          subtitle={`${pendingCount} shop${pendingCount !== 1 ? "s" : ""} awaiting approval`}
+          variant="dark"
+        >
+          {pendingCount > 0 && (
+            <Button variant="default" asChild>
+              <Link href="/app/super_admin/shops">Review pending shops</Link>
+            </Button>
+          )}
+        </DashboardWelcome>
+      ) : (
+        <div className="rounded-3xl bg-charcoal p-6 text-white md:p-8 dark:bg-card">
+          <p className="text-sm text-white/60">Super Admin</p>
+          <h1 className="font-display text-2xl font-bold md:text-3xl">
+            Platform <span className="text-mtn">Overview</span>
+          </h1>
+          <p className="mt-2 text-sm text-white/70">
+            {pendingCount} shop{pendingCount !== 1 ? "s" : ""} awaiting approval
+          </p>
+          {pendingCount > 0 && (
+            <Button className="mt-4" variant="default" asChild>
+              <Link href="/app/super_admin/shops">Review pending shops</Link>
+            </Button>
+          )}
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard title="Total Revenue" value={formatGhs(totalRevenue)} icon={TrendingUp} accent="mtn" trend="+24%" />

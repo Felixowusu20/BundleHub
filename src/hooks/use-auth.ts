@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { usePlatformStore } from "@/stores/platform-store";
+import { useAuthSession } from "@/providers/auth-provider";
 import { useCurrentUser } from "@/hooks/use-platform";
 import type { AccountRole } from "@/types/auth";
 
@@ -15,25 +16,21 @@ const roleRoutes: Record<AccountRole, string> = {
 
 export function useRequireAuth(expectedRole?: AccountRole) {
   const router = useRouter();
-  const initialize = usePlatformStore((s) => s.initialize);
-  const session = usePlatformStore((s) => s.session);
-  const user = useCurrentUser();
+  const { user, loading } = useAuthSession();
+  const currentUser = useCurrentUser();
 
   useEffect(() => {
-    initialize();
-  }, [initialize]);
-
-  useEffect(() => {
-    if (!session || !user) {
+    if (loading) return;
+    if (!user) {
       router.replace("/auth/login");
       return;
     }
     if (expectedRole && user.role !== expectedRole) {
       router.replace(roleRoutes[user.role]);
     }
-  }, [session, user, expectedRole, router]);
+  }, [loading, user, expectedRole, router]);
 
-  return { user, session, ready: Boolean(session && user) };
+  return { user: currentUser, authUser: user, ready: Boolean(!loading && user) };
 }
 
 export function usePlatformData() {
