@@ -6,11 +6,17 @@ import {
   BarChart3,
   Package,
   Star,
+  Store,
+  Tag,
   TrendingUp,
-  Wallet
+  Users,
+  Wallet,
+  MessageSquare,
+  Settings
 } from "lucide-react";
 import { StatCard } from "@/components/shared/stat-card";
 import { TrendChart } from "@/components/shared/trend-chart";
+import { MobileQuickActions } from "@/components/ui/mobile-quick-actions";
 import { DashboardWelcome } from "@/components/shared/dashboard-welcome";
 import { PageLoader } from "@/components/shared/page-loader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,7 +70,7 @@ export function ShopOwnerDashboard() {
     .slice(0, 5);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 md:space-y-6">
       {authUser && (
         <DashboardWelcome
           user={authUser}
@@ -72,6 +78,19 @@ export function ShopOwnerDashboard() {
           subtitle={`${shop.name} • ${shop.city}`}
         />
       )}
+
+      <MobileQuickActions
+        className="md:hidden"
+        actions={[
+          { label: "My Shop", href: "/app/shop_owner/shop", icon: Store, accent: "mtn" },
+          { label: "Orders", href: "/app/shop_owner/orders", icon: Package, accent: "telecel" },
+          { label: "Services", href: "/app/shop_owner/services", icon: Tag, accent: "brand" },
+          { label: "Customers", href: "/app/shop_owner/customers", icon: Users, accent: "muted" },
+          { label: "Analytics", href: "/app/shop_owner/analytics", icon: BarChart3, accent: "muted" },
+          { label: "Messages", href: "/app/shop_owner/messages", icon: MessageSquare, accent: "muted" },
+          { label: "Settings", href: "/app/shop_owner/settings", icon: Settings, accent: "muted" }
+        ]}
+      />
 
       {pendingOrders.length > 0 && !isPending && (
         <div className="flex items-start gap-3 rounded-3xl border border-telecel/40 bg-telecel/10 p-5">

@@ -4,9 +4,10 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
-import { Package, ShoppingBag, TrendingUp, Wallet, Zap, Gift } from "lucide-react";
+import { Package, ShoppingBag, TrendingUp, Wallet, Zap, Gift, MessageSquare, Settings } from "lucide-react";
 import { StatCard } from "@/components/shared/stat-card";
 import { TrendChart } from "@/components/shared/trend-chart";
+import { MobileQuickActions } from "@/components/ui/mobile-quick-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -64,13 +65,13 @@ export function CustomerDashboard() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 md:space-y-6">
       {authUser ? (
         <DashboardWelcome
           user={authUser}
           subtitle={`${user.city} • ${loyalty.current} member • ${loyalty.points} pts`}
         >
-          <div className="flex flex-wrap gap-3">
+          <div className="hidden flex-wrap gap-3 sm:flex">
             <Button variant="secondary" size="sm" asChild>
               <Link href="/app/customer/marketplace">
                 <ShoppingBag className="h-4 w-4" /> Browse marketplace
@@ -110,6 +111,17 @@ export function CustomerDashboard() {
           </div>
         </div>
       )}
+
+      <MobileQuickActions
+        className="md:hidden"
+        actions={[
+          { label: "Shop", href: "/app/customer/marketplace", icon: ShoppingBag, accent: "mtn" },
+          { label: "Orders", href: "/app/customer/orders", icon: Package, accent: "telecel" },
+          { label: "Wallet", href: "/app/customer/wallet", icon: Wallet, accent: "brand" },
+          { label: "Messages", href: "/app/customer/messages", icon: MessageSquare, accent: "muted" },
+          { label: "Settings", href: "/app/customer/settings", icon: Settings, accent: "muted" }
+        ]}
+      />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="border-0 shadow-card dark:shadow-card-dark">
@@ -160,7 +172,7 @@ export function CustomerDashboard() {
         </Card>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
         <StatCard title="Total Orders" value={String(myOrders.length)} hint="all time" icon={Package} accent="mtn" />
         <StatCard title="Active" value={String(active)} hint="in progress" icon={TrendingUp} accent="telecel" />
         <StatCard title="Completed" value={String(completed)} hint="delivered" icon={Package} accent="brand" />

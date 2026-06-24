@@ -69,11 +69,19 @@ export default {
         float: {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-8px)" }
+        },
+        "slide-up": {
+          "0%": { transform: "translateY(100%)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" }
         }
       },
       animation: {
         shimmer: "shimmer 2s linear infinite",
-        float: "float 4s ease-in-out infinite"
+        float: "float 4s ease-in-out infinite",
+        "slide-up": "slide-up 0.3s ease-out"
+      },
+      spacing: {
+        "tab-bar": "calc(3.25rem + env(safe-area-inset-bottom, 0px))"
       }
     }
   },
