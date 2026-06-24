@@ -2,7 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, Search, Zap } from "lucide-react";
+import {
+  HelpCircle,
+  Home,
+  LogIn,
+  Menu,
+  Search,
+  ShoppingBag,
+  Tag,
+  UserPlus,
+  Zap
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { NotificationCenter } from "@/components/shared/notification-center";
@@ -13,10 +23,11 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 
 const links = [
-  { href: "/landing", label: "Home" },
-  { href: "/marketplace", label: "Marketplace" },
-  { href: "/landing#pricing", label: "Pricing" }
-];
+  { href: "/landing", label: "Home", icon: Home },
+  { href: "/marketplace", label: "Marketplace", icon: ShoppingBag },
+  { href: "/landing#pricing", label: "Pricing", icon: Tag },
+  { href: "/help", label: "Help", icon: HelpCircle }
+] as const;
 
 export function PublicHeader() {
   const pathname = usePathname();
@@ -29,13 +40,13 @@ export function PublicHeader() {
   const dashboardHref = user ? `/app/${user.role}` : "/auth/login";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4">
-        <Link href="/landing" className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-2xl gradient-brand shadow-brand">
-            <Zap className="h-5 w-5 text-white" />
+    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl pt-safe">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-3 md:h-16 md:gap-4 md:px-4">
+        <Link href="/landing" className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl gradient-brand shadow-brand md:h-9 md:w-9 md:rounded-2xl">
+            <Zap className="h-4 w-4 text-white md:h-5 md:w-5" />
           </div>
-          <span className="font-display text-xl font-bold tracking-tight">
+          <span className="font-display text-lg font-bold tracking-tight md:text-xl">
             Bundle<span className="gradient-brand-text">Hub</span>
           </span>
         </Link>
@@ -55,12 +66,13 @@ export function PublicHeader() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 md:gap-1">
           <Button
             variant="ghost"
             size="icon"
             className="rounded-full"
             onClick={() => setCommandOpen(true)}
+            aria-label="Search"
           >
             <Search className="h-5 w-5" />
           </Button>
@@ -85,6 +97,7 @@ export function PublicHeader() {
             size="icon"
             className="rounded-full md:hidden"
             onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label="Menu"
           >
             <Menu />
           </Button>
@@ -92,43 +105,60 @@ export function PublicHeader() {
       </div>
 
       {mobileOpen && (
-        <nav className="border-t px-4 py-3 md:hidden">
-          {links.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              onClick={() => setMobileOpen(false)}
-              className="block rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-muted"
-            >
-              {l.label}
-            </Link>
-          ))}
-          {!loading && isSignedIn ? (
-            <Link
-              href={dashboardHref}
-              onClick={() => setMobileOpen(false)}
-              className="block rounded-xl px-3 py-2.5 text-sm font-medium text-mtn"
-            >
-              Dashboard
-            </Link>
-          ) : (
-            <>
+        <nav className="border-t px-3 py-2 md:hidden">
+          <div className="mobile-list-group">
+            {links.map((l) => (
               <Link
-                href="/auth/login"
+                key={l.href}
+                href={l.href}
                 onClick={() => setMobileOpen(false)}
-                className="block rounded-xl px-3 py-2.5 text-sm font-medium"
+                className={cn(
+                  "mobile-list-row",
+                  pathname === l.href && "bg-mtn/10"
+                )}
               >
-                Sign in
+                <span className="mobile-list-icon bg-mtn/15 text-mtn">
+                  <l.icon className="h-[18px] w-[18px]" />
+                </span>
+                <span className="flex-1 text-sm font-medium">{l.label}</span>
               </Link>
+            ))}
+            {!loading && isSignedIn ? (
               <Link
-                href="/auth/register"
+                href={dashboardHref}
                 onClick={() => setMobileOpen(false)}
-                className="block rounded-xl px-3 py-2.5 text-sm font-medium text-secondary"
+                className="mobile-list-row"
               >
-                Register
+                <span className="mobile-list-icon gradient-brand text-white">
+                  <Zap className="h-[18px] w-[18px]" />
+                </span>
+                <span className="flex-1 text-sm font-medium text-mtn">Dashboard</span>
               </Link>
-            </>
-          )}
+            ) : (
+              <>
+                <Link
+                  href="/auth/login"
+                  onClick={() => setMobileOpen(false)}
+                  className="mobile-list-row"
+                >
+                  <span className="mobile-list-icon bg-muted text-muted-foreground">
+                    <LogIn className="h-[18px] w-[18px]" />
+                  </span>
+                  <span className="flex-1 text-sm font-medium">Sign in</span>
+                </Link>
+                <Link
+                  href="/auth/register"
+                  onClick={() => setMobileOpen(false)}
+                  className="mobile-list-row"
+                >
+                  <span className="mobile-list-icon bg-telecel/15 text-telecel">
+                    <UserPlus className="h-[18px] w-[18px]" />
+                  </span>
+                  <span className="flex-1 text-sm font-medium">Register</span>
+                </Link>
+              </>
+            )}
+          </div>
         </nav>
       )}
     </header>

@@ -24,7 +24,7 @@ export function DashboardWelcome({
       : "bg-charcoal text-white dark:bg-card";
 
   return (
-    <div className={`flex flex-wrap items-center gap-4 rounded-3xl p-6 md:p-8 ${shell}`}>
+    <div className={`flex flex-col gap-4 rounded-3xl p-5 sm:flex-row sm:flex-wrap sm:items-center sm:p-6 md:p-8 ${shell}`}>
       <UserAvatar
         email={user.email}
         name={user.name}

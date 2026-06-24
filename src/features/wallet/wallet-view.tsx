@@ -16,7 +16,7 @@ import {
 import { usePlatformStore } from "@/stores/platform-store";
 import { useCurrentUser } from "@/hooks/use-platform";
 import { formatGhs, formatRelative } from "@/lib/format";
-import { ArrowDownLeft, ArrowUpRight, Wallet } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Wallet, ArrowDownToLine, Plus } from "lucide-react";
 
 export function WalletView() {
   const params = useParams<{ role: string }>();
@@ -72,41 +72,44 @@ export function WalletView() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 md:space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-bold">Wallet</h1>
+        <h1 className="font-display text-xl font-bold sm:text-2xl">Wallet</h1>
         <p className="text-sm text-muted-foreground">
           {user.name} • Wallet balance from your account
         </p>
       </div>
 
       <Card className="overflow-hidden border-0 shadow-brand">
-        <div className="gradient-brand p-8 text-white">
+        <div className="gradient-brand p-6 text-white sm:p-8">
           <div className="flex items-center gap-2 text-white/80">
             <Wallet className="h-5 w-5" />
             Available balance
           </div>
-          <p className="mt-2 font-display text-4xl font-bold">{formatGhs(balance)}</p>
+          <p className="mt-2 font-display text-3xl font-bold sm:text-4xl">{formatGhs(balance)}</p>
           {pending > 0 && (
             <p className="mt-2 text-sm text-white/80">
               Pending from active orders: {formatGhs(pending)}
             </p>
           )}
-          <div className="mt-6 flex gap-3">
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:mt-6 sm:flex sm:gap-3">
             <Button
               variant="secondary"
               size="sm"
+              className="h-11 w-full gap-2 sm:w-auto"
               disabled={balance < 10}
               onClick={() => setWithdrawOpen(true)}
             >
+              <ArrowDownToLine className="h-4 w-4" />
               Withdraw
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className="border-white/30 bg-white/10 text-white hover:bg-white/20"
+              className="h-11 w-full gap-2 border-white/30 bg-white/10 text-white hover:bg-white/20 sm:w-auto"
               onClick={handleTopUp}
             >
+              <Plus className="h-4 w-4" />
               Top up GHS 100
             </Button>
           </div>
