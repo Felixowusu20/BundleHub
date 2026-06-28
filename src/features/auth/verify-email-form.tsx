@@ -3,24 +3,21 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CheckCircle2, Mail, RefreshCw } from "lucide-react";
+import { Mail, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ActionLoadingOverlay } from "@/components/shared/action-loading-overlay";
 import { PageLoader } from "@/components/shared/page-loader";
-import { useAuthSession } from "@/providers/auth-provider";
-import {
-  consumeDevVerifyUrl,
-  dashboardPathForRole,
-  postAuth
-} from "@/lib/auth-client";
-import type { AuthUser } from "@/types/auth";
+import { consumeDevVerifyUrl, postAuth } from "@/lib/auth-client";
+
+function loginAfterVerify(email: string) {
+  return `/auth/login?verified=1&email=${encodeURIComponent(email)}`;
+}
 
 function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { setUser } = useAuthSession();
 
   const token = searchParams.get("token");
   const emailParam = searchParams.get("email") ?? "";
@@ -31,7 +28,6 @@ function VerifyEmailContent() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [devVerifyUrl, setDevVerifyUrl] = useState<string | null>(null);
-  const [verified, setVerified] = useState(false);
 
   useEffect(() => {
     const stored = consumeDevVerifyUrl();
@@ -45,31 +41,19 @@ function VerifyEmailContent() {
       credentials: "include"
     })
       .then((r) => r.json())
-      .then(
-        (d: {
-          valid?: boolean;
-          alreadyVerified?: boolean;
-          user?: AuthUser;
-          error?: string;
-        }) => {
-          if (!d.valid) {
-            setError(d.error ?? "Verification failed");
-            return;
-          }
-          setVerified(true);
-          if (d.user) {
-            setUser(d.user);
-            router.refresh();
-            setTimeout(
-              () => router.replace(dashboardPathForRole(d.user!.role)),
-              800
-            );
-          }
+      .then((d: { valid?: boolean; alreadyVerified?: boolean; email?: string; error?: string }) => {
+        if (!d.valid) {
+          setError(d.error ?? "Verification failed");
+          return;
         }
-      )
+        const verifiedEmail = d.email ?? emailParam;
+        if (verifiedEmail) {
+          router.replace(loginAfterVerify(verifiedEmail));
+        }
+      })
       .catch(() => setError("Verification failed"))
       .finally(() => setLoading(false));
-  }, [token, router, setUser]);
+  }, [token, emailParam, router]);
 
   const handleResend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,16 +81,6 @@ function VerifyEmailContent() {
 
   if (loading) {
     return <PageLoader label="Verifying your email…" />;
-  }
-
-  if (verified) {
-    return (
-      <Card className="w-full max-w-md border-0 p-8 text-center shadow-brand">
-        <CheckCircle2 className="mx-auto h-12 w-12 text-mtn" />
-        <p className="mt-4 font-display text-xl font-bold">Email verified!</p>
-        <p className="mt-2 text-sm text-muted-foreground">Taking you to your dashboard…</p>
-      </Card>
-    );
   }
 
   if (token && error) {
