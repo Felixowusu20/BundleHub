@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { createAuthResponse } from "@/lib/auth-response";
-import { mapDbUser } from "@/lib/auth-user";
 import { hashToken, getAppBaseUrl } from "@/lib/tokens";
 import { welcomeEmail, sendEmail } from "@/lib/email";
-import { getSessionFromCookies } from "@/lib/auth";
 
 export async function GET(req: Request) {
   const token = new URL(req.url).searchParams.get("token")?.trim();
@@ -14,7 +11,7 @@ export async function GET(req: Request) {
 
   const record = await prisma.emailVerificationToken.findUnique({
     where: { tokenHash: hashToken(token) },
-    include: { user: { include: { shop: { select: { id: true } } } } }
+    include: { user: true }
   });
 
   if (!record || record.usedAt || record.expiresAt < new Date()) {
@@ -25,7 +22,11 @@ export async function GET(req: Request) {
   }
 
   if (record.user.emailVerifiedAt) {
-    return NextResponse.json({ valid: true, alreadyVerified: true, email: record.user.email });
+    return NextResponse.json({
+      valid: true,
+      alreadyVerified: true,
+      email: record.user.email
+    });
   }
 
   const now = new Date();
@@ -40,12 +41,11 @@ export async function GET(req: Request) {
     });
     return tx.user.update({
       where: { id: record.userId },
-      data: { emailVerifiedAt: now },
-      include: { shop: { select: { id: true } } }
+      data: { emailVerifiedAt: now }
     });
   });
 
-  const welcome = welcomeEmail(user.name, `${getAppBaseUrl()}/auth/login`);
+  const welcome = welcomeEmail(user.name, `${getAppBaseUrl()}/auth/login?verified=1&email=${encodeURIComponent(user.email)}`);
   void sendEmail({
     to: user.email,
     subject: welcome.subject,
@@ -53,14 +53,8 @@ export async function GET(req: Request) {
     text: welcome.text
   });
 
-  const session = await getSessionFromCookies();
-  if (session?.userId === user.id) {
-    return NextResponse.json({
-      valid: true,
-      user: mapDbUser(user),
-      signedIn: true
-    });
-  }
-
-  return createAuthResponse(user, { valid: true, signedIn: true });
+  return NextResponse.json({
+    valid: true,
+    email: user.email
+  });
 }

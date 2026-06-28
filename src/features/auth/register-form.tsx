@@ -11,7 +11,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActionLoadingOverlay } from "@/components/shared/action-loading-overlay";
 import { ProfilePicturePicker } from "@/components/shared/profile-picture-picker";
-import { postAuth, storeDevVerifyUrl } from "@/lib/auth-client";
+import { postAuth, storeDevVerifyUrl, storePendingLogin } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
 const cities = ["Accra", "Kumasi", "Takoradi", "Tema", "Tamale", "Cape Coast"];
@@ -61,6 +61,8 @@ export function RegisterForm() {
       if (data.devVerifyUrl) {
         storeDevVerifyUrl(String(data.devVerifyUrl));
       }
+
+      storePendingLogin(String(data.email), form.password);
 
       router.push(`/auth/verify-email?email=${encodeURIComponent(String(data.email))}`);
     } catch {
