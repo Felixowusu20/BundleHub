@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { verifySessionToken, SESSION_COOKIE } from "@/lib/auth";
+import { verifySessionToken, SESSION_COOKIE } from "@/lib/auth-session";
 
 const publicAuthPages = [
   "/auth/login",
@@ -16,10 +16,11 @@ const sessionAllowedAuthPages = ["/auth/verify-email", "/auth/reset-password"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  const session = token ? await verifySessionToken(token) : null;
 
   if (pathname.startsWith("/app")) {
-    const token = request.cookies.get(SESSION_COOKIE)?.value;
-    if (!token || !(await verifySessionToken(token))) {
+    if (!session) {
       const login = new URL("/auth/login", request.url);
       login.searchParams.set("next", pathname);
       return NextResponse.redirect(login);
@@ -27,10 +28,8 @@ export async function middleware(request: NextRequest) {
   }
 
   if (publicAuthPages.some((p) => pathname.startsWith(p))) {
-    const token = request.cookies.get(SESSION_COOKIE)?.value;
-    const sessionOk = token && (await verifySessionToken(token));
     const allowWithSession = sessionAllowedAuthPages.some((p) => pathname.startsWith(p));
-    if (sessionOk && !allowWithSession) {
+    if (session && !allowWithSession) {
       return NextResponse.redirect(new URL("/app", request.url));
     }
   }

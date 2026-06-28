@@ -11,6 +11,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActionLoadingOverlay } from "@/components/shared/action-loading-overlay";
 import { ProfilePicturePicker } from "@/components/shared/profile-picture-picker";
+import { postAuth, storeDevVerifyUrl } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
 const cities = ["Accra", "Kumasi", "Takoradi", "Tema", "Tamale", "Cape Coast"];
@@ -49,24 +50,19 @@ export function RegisterForm() {
     }
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, ...form })
-      });
-      const data = (await res.json()) as {
-        email?: string;
-        message?: string;
-        error?: string;
-        devVerifyUrl?: string;
-      };
-      if (!res.ok || !data.email) {
+      const { confirmPassword: _, ...payload } = form;
+      const data = await postAuth("/api/auth/register", { type, ...payload });
+
+      if (!data.ok || !data.email) {
         setError(data.error ?? "Registration failed");
         return;
       }
-      const params = new URLSearchParams({ email: data.email });
-      if (data.devVerifyUrl) params.set("dev", "1");
-      router.push(`/auth/verify-email?${params.toString()}`);
+
+      if (data.devVerifyUrl) {
+        storeDevVerifyUrl(String(data.devVerifyUrl));
+      }
+
+      router.push(`/auth/verify-email?email=${encodeURIComponent(String(data.email))}`);
     } catch {
       setError("Registration failed");
     } finally {
@@ -85,7 +81,12 @@ export function RegisterForm() {
       />
       <div>
         <label className="mb-1.5 block text-sm font-medium">Full name</label>
-        <Input value={form.name} onChange={(e) => update("name", e.target.value)} required />
+        <Input
+          value={form.name}
+          onChange={(e) => update("name", e.target.value)}
+          autoComplete="name"
+          required
+        />
       </div>
       <div>
         <label className="mb-1.5 block text-sm font-medium">Email</label>
@@ -93,6 +94,7 @@ export function RegisterForm() {
           type="email"
           value={form.email}
           onChange={(e) => update("email", e.target.value)}
+          autoComplete="email"
           required
         />
       </div>
@@ -101,6 +103,7 @@ export function RegisterForm() {
         <PasswordInput
           value={form.password}
           onChange={(e) => update("password", e.target.value)}
+          autoComplete="new-password"
           minLength={6}
           required
         />
@@ -110,6 +113,7 @@ export function RegisterForm() {
         <PasswordInput
           value={form.confirmPassword}
           onChange={(e) => update("confirmPassword", e.target.value)}
+          autoComplete="new-password"
           minLength={6}
           required
         />
@@ -121,6 +125,7 @@ export function RegisterForm() {
             value={form.phone}
             onChange={(e) => update("phone", e.target.value)}
             placeholder="0241234567"
+            autoComplete="tel"
             required
           />
         </div>

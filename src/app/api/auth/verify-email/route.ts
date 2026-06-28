@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { createSessionToken, getSessionFromCookies, setSessionCookie } from "@/lib/auth";
+import { createAuthResponse } from "@/lib/auth-response";
 import { mapDbUser } from "@/lib/auth-user";
-import { hashToken } from "@/lib/tokens";
+import { hashToken, getAppBaseUrl } from "@/lib/tokens";
 import { welcomeEmail, sendEmail } from "@/lib/email";
-import { getAppBaseUrl } from "@/lib/tokens";
+import { getSessionFromCookies } from "@/lib/auth";
 
 export async function GET(req: Request) {
   const token = new URL(req.url).searchParams.get("token")?.trim();
@@ -14,7 +14,7 @@ export async function GET(req: Request) {
 
   const record = await prisma.emailVerificationToken.findUnique({
     where: { tokenHash: hashToken(token) },
-    include: { user: { include: { shop: true } } }
+    include: { user: { include: { shop: { select: { id: true } } } } }
   });
 
   if (!record || record.usedAt || record.expiresAt < new Date()) {
@@ -41,7 +41,7 @@ export async function GET(req: Request) {
     return tx.user.update({
       where: { id: record.userId },
       data: { emailVerifiedAt: now },
-      include: { shop: true }
+      include: { shop: { select: { id: true } } }
     });
   });
 
@@ -55,15 +55,12 @@ export async function GET(req: Request) {
 
   const session = await getSessionFromCookies();
   if (session?.userId === user.id) {
-    return NextResponse.json({ valid: true, user: mapDbUser(user), signedIn: true });
+    return NextResponse.json({
+      valid: true,
+      user: mapDbUser(user),
+      signedIn: true
+    });
   }
 
-  const sessionToken = await createSessionToken({
-    userId: user.id,
-    role: user.role,
-    email: user.email
-  });
-  await setSessionCookie(sessionToken);
-
-  return NextResponse.json({ valid: true, user: mapDbUser(user), signedIn: true });
+  return createAuthResponse(user, { valid: true, signedIn: true });
 }
