@@ -1,18 +1,15 @@
 import { NextResponse } from "next/server";
-import type { User } from "@/generated/prisma/client";
 import {
   createSessionToken,
   SESSION_COOKIE,
   sessionCookieOptions,
   type SessionPayload
 } from "@/lib/auth-session";
-import { mapDbUser } from "@/lib/auth-user";
+import { mapDbUser, type DbUserForAuth } from "@/lib/auth-user";
 import type { AuthUser } from "@/types/auth";
 
-type UserWithShop = User & { shop?: { id: string } | null };
-
 export async function createAuthResponse(
-  user: UserWithShop,
+  user: DbUserForAuth,
   extra?: Record<string, unknown>
 ) {
   const payload: SessionPayload = {

@@ -1,7 +1,25 @@
 import bcrypt from "bcryptjs";
-import type { User } from "@/generated/prisma/client";
+import type { AdminTier, LoyaltyLevel, UserRole } from "@/generated/prisma/client";
+import type { Decimal } from "@/generated/prisma/internal/prismaNamespace";
 import type { AuthUser } from "@/types/auth";
 import { toAppRole } from "@/lib/auth-session";
+
+/** Fields required to build an AuthUser — allows lean Prisma selects. */
+export type DbUserForAuth = {
+  id: string;
+  email: string;
+  name: string;
+  phone: string | null;
+  city: string | null;
+  role: UserRole;
+  adminTier: AdminTier | null;
+  avatarUrl: string | null;
+  createdAt: Date;
+  walletBalance: Decimal | number | string;
+  loyaltyLevel: LoyaltyLevel;
+  emailVerifiedAt: Date | null;
+  shop?: { id: string } | null;
+};
 
 /** Cost 10 balances security with faster sign-in (~50–100 ms vs ~300 ms at 12). */
 const BCRYPT_ROUNDS = 10;
@@ -25,7 +43,7 @@ export async function verifyPasswordSafe(
   return bcrypt.compare(password, hash ?? DUMMY_PASSWORD_HASH);
 }
 
-export function mapDbUser(user: User & { shop?: { id: string } | null }): AuthUser {
+export function mapDbUser(user: DbUserForAuth): AuthUser {
   return {
     id: user.id,
     email: user.email,
