@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,17 +10,11 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { ActionLoadingOverlay } from "@/components/shared/action-loading-overlay";
 import { useAuthSession } from "@/providers/auth-provider";
-import type { AuthUser } from "@/types/auth";
+import { dashboardPathForRole, postAuth } from "@/lib/auth-client";
 
-const roleRedirect: Record<string, string> = {
-  customer: "/app/customer",
-  shop_owner: "/app/shop_owner",
-  shop_staff: "/app/shop_staff",
-  super_admin: "/app/super_admin"
-};
-
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { setUser } = useAuthSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,27 +33,25 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password })
-      });
-      const data = (await res.json()) as {
-        user?: AuthUser;
-        error?: string;
-        needsEmailVerification?: boolean;
-        email?: string;
-      };
-      if (!res.ok || !data.user) {
-        if (data.needsEmailVerification && data.email) {
-          router.push(`/auth/verify-email?email=${encodeURIComponent(data.email)}`);
-          return;
-        }
+      const data = await postAuth("/api/auth/login", { email, password });
+
+      if (data.needsEmailVerification && data.email) {
+        router.push(`/auth/verify-email?email=${encodeURIComponent(data.email)}`);
+        return;
+      }
+
+      if (!data.ok || !data.user) {
         setError(data.error ?? "Sign in failed");
         return;
       }
+
       setUser(data.user);
-      router.push(roleRedirect[data.user.role] ?? "/app");
+      router.refresh();
+
+      const next = searchParams.get("next");
+      const destination =
+        next?.startsWith("/app") ? next : dashboardPathForRole(data.user.role);
+      router.push(destination);
     } catch {
       setError("Sign in failed");
     } finally {
@@ -102,6 +94,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
+                autoComplete="email"
                 required
               />
             </div>
@@ -119,6 +112,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
+                autoComplete="current-password"
                 required
               />
             </div>
@@ -136,5 +130,13 @@ export default function LoginPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }

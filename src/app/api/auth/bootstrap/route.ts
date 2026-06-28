@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { createSessionToken, setSessionCookie } from "@/lib/auth";
-import { hashPassword, mapDbUser } from "@/lib/auth-user";
+import { createAuthResponse } from "@/lib/auth-response";
+import { hashPassword } from "@/lib/auth-user";
 
 export async function POST(req: Request) {
   try {
@@ -50,14 +50,7 @@ export async function POST(req: Request) {
       }
     });
 
-    const token = await createSessionToken({
-      userId: user.id,
-      role: user.role,
-      email: user.email
-    });
-    await setSessionCookie(token);
-
-    return NextResponse.json({ user: mapDbUser(user) });
+    return createAuthResponse(user);
   } catch (e) {
     console.error("bootstrap admin", e);
     return NextResponse.json({ error: "Could not create admin account." }, { status: 500 });

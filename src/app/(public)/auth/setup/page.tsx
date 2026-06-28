@@ -11,7 +11,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { ActionLoadingOverlay } from "@/components/shared/action-loading-overlay";
 import { ProfilePicturePicker } from "@/components/shared/profile-picture-picker";
 import { useAuthSession } from "@/providers/auth-provider";
-import type { AuthUser } from "@/types/auth";
+import { dashboardPathForRole, postAuth } from "@/lib/auth-client";
 
 export default function AdminSetupPage() {
   const router = useRouter();
@@ -46,18 +46,15 @@ export default function AdminSetupPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/bootstrap", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form)
-      });
-      const data = (await res.json()) as { user?: AuthUser; error?: string };
-      if (!res.ok || !data.user) {
+      const { confirmPassword: _, ...payload } = form;
+      const data = await postAuth("/api/auth/bootstrap", payload);
+      if (!data.ok || !data.user) {
         setError(data.error ?? "Setup failed");
         return;
       }
       setUser(data.user);
-      router.push("/app/super_admin");
+      router.refresh();
+      router.push(dashboardPathForRole(data.user.role));
     } catch {
       setError("Setup failed");
     } finally {

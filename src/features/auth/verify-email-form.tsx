@@ -10,14 +10,12 @@ import { Input } from "@/components/ui/input";
 import { ActionLoadingOverlay } from "@/components/shared/action-loading-overlay";
 import { PageLoader } from "@/components/shared/page-loader";
 import { useAuthSession } from "@/providers/auth-provider";
+import {
+  consumeDevVerifyUrl,
+  dashboardPathForRole,
+  postAuth
+} from "@/lib/auth-client";
 import type { AuthUser } from "@/types/auth";
-
-const roleRedirect: Record<string, string> = {
-  customer: "/app/customer",
-  shop_owner: "/app/shop_owner",
-  shop_staff: "/app/shop_staff",
-  super_admin: "/app/super_admin"
-};
 
 function VerifyEmailContent() {
   const router = useRouter();
@@ -36,9 +34,16 @@ function VerifyEmailContent() {
   const [verified, setVerified] = useState(false);
 
   useEffect(() => {
+    const stored = consumeDevVerifyUrl();
+    if (stored) setDevVerifyUrl(stored);
+  }, []);
+
+  useEffect(() => {
     if (!token) return;
 
-    fetch(`/api/auth/verify-email?token=${encodeURIComponent(token)}`)
+    fetch(`/api/auth/verify-email?token=${encodeURIComponent(token)}`, {
+      credentials: "include"
+    })
       .then((r) => r.json())
       .then(
         (d: {
@@ -54,7 +59,11 @@ function VerifyEmailContent() {
           setVerified(true);
           if (d.user) {
             setUser(d.user);
-            setTimeout(() => router.replace(roleRedirect[d.user!.role] ?? "/app"), 1500);
+            router.refresh();
+            setTimeout(
+              () => router.replace(dashboardPathForRole(d.user!.role)),
+              800
+            );
           }
         }
       )
@@ -68,25 +77,17 @@ function VerifyEmailContent() {
     setResending(true);
     setError(null);
     setMessage(null);
-    setDevVerifyUrl(null);
 
     try {
-      const res = await fetch("/api/auth/verify-email/resend", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() })
+      const data = await postAuth("/api/auth/verify-email/resend", {
+        email: email.trim()
       });
-      const data = (await res.json()) as {
-        message?: string;
-        error?: string;
-        devVerifyUrl?: string;
-      };
-      if (!res.ok) {
+      if (!data.ok) {
         setError(data.error ?? "Could not send email");
         return;
       }
-      setMessage(data.message ?? "Verification email sent.");
-      if (data.devVerifyUrl) setDevVerifyUrl(data.devVerifyUrl);
+      setMessage(String(data.message ?? "Verification email sent."));
+      if (data.devVerifyUrl) setDevVerifyUrl(String(data.devVerifyUrl));
     } catch {
       setError("Could not send email");
     } finally {

@@ -34,12 +34,14 @@ export async function createAndSendVerificationEmail(
     text: mail.text
   });
 
+  const isDev = process.env.NODE_ENV === "development";
+
   if (!sent.ok) {
-    if (process.env.NODE_ENV === "development") {
+    if (isDev) {
       return { ok: true, devVerifyUrl: verifyUrl };
     }
     return { ok: false, error: sent.error };
   }
 
-  return { ok: true };
+  return isDev ? { ok: true, devVerifyUrl: verifyUrl } : { ok: true };
 }
